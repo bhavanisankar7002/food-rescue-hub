@@ -23,6 +23,7 @@ import RiskBadge from '../components/RiskBadge';
 import StatusTimeline from '../components/StatusTimeline';
 import ClaimConfirmationModal from '../components/ClaimConfirmationModal';
 import MarkCollectedModal from '../components/MarkCollectedModal';
+import RateNgoModal from '../components/RateNgoModal';
 import InteractiveMap from '../components/InteractiveMap';
 import SkeletonCard from '../components/SkeletonCard';
 
@@ -44,6 +45,7 @@ export default function RecipientDashboard() {
   // Modal target post
   const [selectedClaimPost, setSelectedClaimPost] = useState(null);
   const [selectedCollectPost, setSelectedCollectPost] = useState(null);
+  const [selectedRateNgoClaim, setSelectedRateNgoClaim] = useState(null);
 
   const fetchData = async () => {
     try {
@@ -298,6 +300,25 @@ export default function RecipientDashboard() {
                           </div>
                         </div>
 
+                        {/* Routing & NGO Involvement Indicator */}
+                        <div className="pt-1">
+                          {post.ngoInvolvement && post.assignedNgo ? (
+                            <div className="p-2 rounded-xl bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/80 text-[11px] flex items-center justify-between">
+                              <span className="font-bold text-purple-900 dark:text-purple-200 flex items-center space-x-1">
+                                <span>🛡️ Transport: {post.assignedNgo.name}</span>
+                              </span>
+                              <span className="text-[10px] font-extrabold text-purple-600 dark:text-purple-400">
+                                {post.assignedNgo.trustScore ?? 98}% Trust
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="p-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-[11px] text-slate-600 dark:text-slate-400 font-semibold flex items-center justify-between">
+                              <span>🚀 Direct Kitchen Pickup</span>
+                              <span className="text-[10px] text-emerald-600 font-bold">No Middleman</span>
+                            </div>
+                          )}
+                        </div>
+
                       </div>
 
                       {/* Claim CTA Button */}
@@ -351,6 +372,38 @@ export default function RecipientDashboard() {
                       </span>
                     </div>
 
+                    {/* NGO Delivery Status & Anti-Fraud Pill */}
+                    {claim.assignedNgo && (
+                      <div className="p-3 rounded-2xl bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/80 text-xs space-y-1.5">
+                        <div className="flex items-center justify-between font-bold text-purple-900 dark:text-purple-200 text-[11px]">
+                          <span>🛡️ Delivery Partner: {claim.assignedNgo.name}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-300">
+                            {claim.assignedNgo.trustScore ?? 98}% Trust Score
+                          </span>
+                        </div>
+
+                        {claim.ratingRecipientToNgo?.stars > 0 ? (
+                          <div className="text-[11px] pt-0.5 flex items-center justify-between text-slate-700 dark:text-slate-300">
+                            <span>Your NGO Rating: ★ {claim.ratingRecipientToNgo.stars}</span>
+                            {claim.ratingRecipientToNgo.isFraudReported ? (
+                              <span className="text-rose-600 font-extrabold">⚠️ Fraud Reported</span>
+                            ) : (
+                              <span className="text-emerald-600 font-semibold">✓ Verified Honest</span>
+                            )}
+                          </div>
+                        ) : (
+                          claim.status === 'Collected' && (
+                            <button
+                              onClick={() => setSelectedRateNgoClaim(claim)}
+                              className="text-[11px] font-bold text-purple-700 dark:text-purple-300 hover:underline pt-0.5 block"
+                            >
+                              ⭐ Rate NGO Partner & Submit Anti-Fraud Review
+                            </button>
+                          )
+                        )}
+                      </div>
+                    )}
+
                     <StatusTimeline
                       status={claim.status}
                       claimedByName={user?.name}
@@ -363,7 +416,7 @@ export default function RecipientDashboard() {
                       onClick={() => setSelectedCollectPost(claim)}
                       className="w-full py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md"
                     >
-                      Mark Collected & Rate Donor ★
+                      Mark Collected & Rate Experience ★
                     </button>
                   )}
                 </div>
@@ -386,6 +439,14 @@ export default function RecipientDashboard() {
         isOpen={!!selectedCollectPost}
         onClose={() => setSelectedCollectPost(null)}
         onSuccess={() => fetchData()}
+      />
+
+      <RateNgoModal
+        post={selectedRateNgoClaim}
+        isOpen={!!selectedRateNgoClaim}
+        onClose={() => setSelectedRateNgoClaim(null)}
+        onSuccess={() => fetchData()}
+        userRole="recipient"
       />
 
     </div>

@@ -104,6 +104,15 @@ export default function ClaimConfirmationModal({ post, isOpen, onClose, onSucces
                 <span>{donor.address || post.pickupAddress}</span>
               </span>
             </div>
+
+            <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/60">
+              <span className="text-slate-500">Distribution:</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200">
+                {post.ngoInvolvement && post.assignedNgo
+                  ? `🛡️ Via ${post.assignedNgo.name} (${post.assignedNgo.trustScore ?? 98}% Trust)`
+                  : '🚀 Direct Pickup (No NGO Middleman)'}
+              </span>
+            </div>
           </div>
 
           {/* Pickup Terms Warning */}

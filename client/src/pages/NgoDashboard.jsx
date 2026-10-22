@@ -163,6 +163,54 @@ export default function NgoDashboard() {
 
       </div>
 
+      {/* NGO TRUST & ANTI-FRAUD VERIFICATION PANEL */}
+      <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div className="flex items-center space-x-2.5">
+            <div className="p-2.5 rounded-2xl bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-300">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                NGO Network Integrity & Anti-Fraud Verification
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Two-sided audit scores from verified food donors and recipient care shelters
+              </p>
+            </div>
+          </div>
+          <span className="self-start sm:self-auto px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-xs font-bold border border-emerald-300 dark:border-emerald-800">
+            🛡️ Fraud Protection Active
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-1">
+            <span className="text-[11px] uppercase font-bold text-slate-500">Your Trust Score</span>
+            <p className="text-2xl font-black text-purple-600 dark:text-purple-400">
+              {user?.trustScore ?? 98}%
+            </p>
+            <p className="text-[11px] text-slate-500">Calculated from verified handovers and safety audits</p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-1">
+            <span className="text-[11px] uppercase font-bold text-slate-500">Active Fraud Reports</span>
+            <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+              {user?.fraudReportsCount || 0} Reports
+            </p>
+            <p className="text-[11px] text-slate-500">Zero active misconduct or diversion reports</p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-1">
+            <span className="text-[11px] uppercase font-bold text-slate-500">Audit Verification Badge</span>
+            <p className="text-xl font-black text-amber-500 pt-0.5">
+              {user?.badge || 'Verified NGO'}
+            </p>
+            <p className="text-[11px] text-slate-500">Highest compliance tier for city surplus logistics</p>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }

@@ -20,6 +20,7 @@ import RiskBadge from '../components/RiskBadge';
 import PostFoodModal from '../components/PostFoodModal';
 import FoodSafetyModal from '../components/FoodSafetyModal';
 import MarkCollectedModal from '../components/MarkCollectedModal';
+import RateNgoModal from '../components/RateNgoModal';
 import SkeletonCard from '../components/SkeletonCard';
 
 export default function DonorDashboard() {
@@ -30,6 +31,7 @@ export default function DonorDashboard() {
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [isSafetyModalOpen, setIsSafetyModalOpen] = useState(false);
   const [selectedCollectPost, setSelectedCollectPost] = useState(null);
+  const [selectedRateNgoPost, setSelectedRateNgoPost] = useState(null);
 
   const fetchMyPosts = async () => {
     try {
@@ -258,6 +260,48 @@ export default function DonorDashboard() {
                     </span>
                   </div>
 
+                  {/* Distribution Route & NGO Involvement Tag */}
+                  <div className="flex items-center justify-between text-xs px-1">
+                    {post.ngoInvolvement && post.assignedNgo ? (
+                      <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-950/80 text-purple-800 dark:text-purple-300 text-[11px] font-bold border border-purple-200 dark:border-purple-800">
+                        <span>🛡️ NGO: {post.assignedNgo.name}</span>
+                        <span className="text-purple-500 font-extrabold">({post.assignedNgo.trustScore ?? 98}% Trust)</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-semibold">
+                        <span>🚀 Direct Recipient Delivery</span>
+                      </span>
+                    )}
+
+                    {post.ngoInvolvement && post.assignedNgo && (!post.ratingDonorToNgo || !post.ratingDonorToNgo.stars) && (
+                      <button
+                        onClick={() => setSelectedRateNgoPost(post)}
+                        className="text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline flex items-center space-x-1"
+                      >
+                        <span>⭐ Rate NGO</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Donor's Submitted Review of the NGO */}
+                  {post.ratingDonorToNgo?.stars > 0 && (
+                    <div className="p-3 rounded-2xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/60 text-xs space-y-1">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-purple-900 dark:text-purple-200">
+                        <span>🛡️ Your NGO Review: ★ {post.ratingDonorToNgo.stars} Stars</span>
+                        {post.ratingDonorToNgo.isFraudReported ? (
+                          <span className="text-rose-600 dark:text-rose-400 font-extrabold">⚠️ Fraud Reported</span>
+                        ) : (
+                          <span className="text-emerald-600 font-bold">✓ Verified Honest</span>
+                        )}
+                      </div>
+                      {post.ratingDonorToNgo.comment && (
+                        <p className="text-slate-600 dark:text-slate-400 italic text-[11px]">
+                          "{post.ratingDonorToNgo.comment}"
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {post.claimedBy && (
                     <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs space-y-1">
                       <div className="flex items-center justify-between">
@@ -321,6 +365,14 @@ export default function DonorDashboard() {
         isOpen={!!selectedCollectPost}
         onClose={() => setSelectedCollectPost(null)}
         onSuccess={() => fetchMyPosts()}
+      />
+
+      <RateNgoModal
+        post={selectedRateNgoPost}
+        isOpen={!!selectedRateNgoPost}
+        onClose={() => setSelectedRateNgoPost(null)}
+        onSuccess={() => fetchMyPosts()}
+        userRole="donor"
       />
 
     </div>

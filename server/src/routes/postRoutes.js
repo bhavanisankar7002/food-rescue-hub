@@ -63,6 +63,17 @@ const checkAndExpirePosts = async () => {
   }
 };
 
+// GET /api/posts/ngos - Fetch verified NGOs for donor selection
+router.get('/ngos', async (req, res) => {
+  try {
+    const ngos = await User.find({ role: 'ngo' })
+      .select('name email phone orgType badge rating ratingCount trustScore fraudReportsCount address coordinates');
+    res.json(ngos);
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Error fetching NGOs.' });
+  }
+});
+
 // POST /api/posts - Create new post (DONOR ONLY)
 router.post('/', authenticateToken, async (req, res) => {
   try {
@@ -70,7 +81,19 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(403).json({ message: 'Only registered donors can post surplus food.' });
     }
 
-    const { items, preparedAt, expiresAt, qualityChecked, storageTempNotes, imageUrl, dietaryType, estimatedMealsInput } = req.body;
+    const {
+      items,
+      preparedAt,
+      expiresAt,
+      qualityChecked,
+      storageTempNotes,
+      imageUrl,
+      dietaryType,
+      estimatedMealsInput,
+      ngoInvolvement,
+      assignedNgo,
+      ngoInvolvementReason,
+    } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ message: 'Please add at least one food item with quantity.' });
@@ -109,6 +132,17 @@ router.post('/', authenticateToken, async (req, res) => {
     const totalWeightKg = Math.max(1, Math.round(totalKg * 10) / 10);
     const estimatedMeals = Number(estimatedMealsInput) || Math.max(1, totalPortions);
 
+    let targetNgoId = null;
+    const isNgoInvolved = Boolean(ngoInvolvement);
+    if (isNgoInvolved) {
+      if (assignedNgo) {
+        targetNgoId = assignedNgo;
+      } else {
+        const firstNgo = await User.findOne({ role: 'ngo' });
+        if (firstNgo) targetNgoId = firstNgo._id;
+      }
+    }
+
     const newPost = new FoodPost({
       donor: req.user._id,
       items,
@@ -124,10 +158,16 @@ router.post('/', authenticateToken, async (req, res) => {
       riskReason: risk.reason,
       status: 'Posted',
       pickupAddress: req.user.address || '123 Community Hub',
+      ngoInvolvement: isNgoInvolved,
+      assignedNgo: targetNgoId,
+      ngoInvolvementReason: ngoInvolvementReason || (isNgoInvolved ? 'Logistics and quality oversight' : ''),
     });
 
     await newPost.save();
     await newPost.populate('donor', 'name email phone address orgType badge rating ratingCount');
+    if (newPost.assignedNgo) {
+      await newPost.populate('assignedNgo', 'name email phone orgType badge rating ratingCount trustScore fraudReportsCount');
+    }
 
     // REQUIREMENT 6: Notifications go strictly to users with role "recipient"
     const recipients = await User.find({ role: 'recipient' });
@@ -136,9 +176,21 @@ router.post('/', authenticateToken, async (req, res) => {
       donor: req.user._id,
       post: newPost._id,
       title: '🍎 New Surplus Food Available!',
-      message: `${req.user.name} posted ${newPost.title} (${newPost.totalWeightKg} kg, ${newPost.estimatedMeals} meals). Claim now!`,
+      message: `${req.user.name} posted ${newPost.title} (${newPost.totalWeightKg} kg, ${newPost.estimatedMeals} meals)${isNgoInvolved ? ' [NGO Partner Supported]' : ' [Direct Pickup]'}. Claim now!`,
       type: 'new_post',
     }));
+
+    if (isNgoInvolved && targetNgoId) {
+      notifDocs.push({
+        recipient: targetNgoId,
+        donor: req.user._id,
+        post: newPost._id,
+        title: '🛡️ NGO Assistance Requested',
+        message: `${req.user.name} posted ${newPost.title} and requested verified NGO logistics support.`,
+        type: 'system',
+      });
+    }
+
     await Notification.insertMany(notifDocs);
 
     // Create Activity Log
@@ -166,6 +218,7 @@ router.get('/available', async (req, res) => {
 
     const posts = await FoodPost.find({ status: 'Posted' })
       .populate('donor', 'name email phone address orgType badge rating ratingCount coordinates')
+      .populate('assignedNgo', 'name email phone orgType badge rating ratingCount trustScore fraudReportsCount')
       .sort({ createdAt: -1 });
 
     const updatedPosts = posts.map(p => {
@@ -189,6 +242,7 @@ router.get('/my-posts', authenticateToken, async (req, res) => {
 
     const posts = await FoodPost.find({ donor: req.user._id })
       .populate('claimedBy', 'name email phone orgType address')
+      .populate('assignedNgo', 'name email phone orgType badge rating ratingCount trustScore fraudReportsCount')
       .sort({ createdAt: -1 });
 
     res.json(posts);
@@ -202,6 +256,7 @@ router.get('/my-claims', authenticateToken, async (req, res) => {
   try {
     const claims = await FoodPost.find({ claimedBy: req.user._id })
       .populate('donor', 'name email phone address orgType badge rating ratingCount coordinates')
+      .populate('assignedNgo', 'name email phone orgType badge rating ratingCount trustScore fraudReportsCount')
       .sort({ updatedAt: -1 });
 
     res.json(claims);
@@ -233,6 +288,9 @@ router.put('/:id/claim', authenticateToken, async (req, res) => {
 
     await post.populate('donor', 'name email phone address orgType badge rating ratingCount');
     await post.populate('claimedBy', 'name email phone orgType address');
+    if (post.assignedNgo) {
+      await post.populate('assignedNgo', 'name email phone orgType badge rating ratingCount trustScore fraudReportsCount');
+    }
 
     await ActivityLog.create({
       user: req.user._id,
@@ -254,7 +312,7 @@ router.put('/:id/claim', authenticateToken, async (req, res) => {
 // PUT /api/posts/:id/collect - Mark collected
 router.put('/:id/collect', authenticateToken, async (req, res) => {
   try {
-    const { stars, comment, tags } = req.body;
+    const { stars, comment, tags, ngoRating } = req.body;
     const post = await FoodPost.findById(req.params.id);
 
     if (!post) {
@@ -277,9 +335,41 @@ router.put('/:id/collect', authenticateToken, async (req, res) => {
       };
     }
 
+    // Process recipient feedback on NGO if present
+    if (ngoRating && post.assignedNgo) {
+      const isFraud = Boolean(ngoRating.isFraudReported);
+      post.ratingRecipientToNgo = {
+        stars: Number(ngoRating.stars) || 5,
+        comment: ngoRating.comment || '',
+        tags: Array.isArray(ngoRating.tags) ? ngoRating.tags : [],
+        isFraudReported: isFraud,
+        createdAt: new Date(),
+      };
+
+      const ngoUser = await User.findById(post.assignedNgo);
+      if (ngoUser) {
+        const totalR = (ngoUser.ratingCount || 0) + 1;
+        const newR = ((ngoUser.rating || 5) * (ngoUser.ratingCount || 0) + Number(ngoRating.stars || 5)) / totalR;
+        ngoUser.rating = Math.round(newR * 10) / 10;
+        ngoUser.ratingCount = totalR;
+
+        if (isFraud) {
+          ngoUser.fraudReportsCount = (ngoUser.fraudReportsCount || 0) + 1;
+          ngoUser.trustScore = Math.max(0, (ngoUser.trustScore || 98) - 25);
+          if (ngoUser.trustScore < 60) ngoUser.badge = 'Member';
+        } else {
+          ngoUser.trustScore = Math.min(100, (ngoUser.trustScore || 98) + 1);
+        }
+        await ngoUser.save();
+      }
+    }
+
     await post.save();
     await post.populate('donor', 'name email phone address orgType badge rating ratingCount');
     await post.populate('claimedBy', 'name email phone orgType address');
+    if (post.assignedNgo) {
+      await post.populate('assignedNgo', 'name email phone orgType badge rating ratingCount trustScore fraudReportsCount');
+    }
 
     if (stars && post.donor) {
       const donorUser = await User.findById(post.donor._id);
@@ -303,7 +393,7 @@ router.put('/:id/collect', authenticateToken, async (req, res) => {
       userName: req.user.name,
       userRole: req.user.role,
       action: 'Completed Pickup Collection',
-      details: `Marked "${post.title}" as collected and rescued.`,
+      details: `Marked "${post.title}" as collected and rescued.${ngoRating?.isFraudReported ? ' [WARNING: Fraud Reported on NGO]' : ''}`,
     });
 
     res.json({
@@ -312,6 +402,136 @@ router.put('/:id/collect', authenticateToken, async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: err.message || 'Error marking post collected.' });
+  }
+});
+
+// PUT /api/posts/:id/donor-rate-ngo - Donor reviews involved NGO
+router.put('/:id/donor-rate-ngo', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'donor') {
+      return res.status(403).json({ message: 'Only donors can submit donor-to-NGO feedback.' });
+    }
+
+    const { stars, comment, tags, isFraudReported } = req.body;
+    const post = await FoodPost.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: 'Post not found.' });
+
+    if (post.donor.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Unauthorized: Not the owner of this post.' });
+    }
+
+    if (!post.assignedNgo) {
+      return res.status(400).json({ message: 'No NGO was involved with this post.' });
+    }
+
+    const isFraud = Boolean(isFraudReported);
+    post.ratingDonorToNgo = {
+      stars: Number(stars) || 5,
+      comment: comment || '',
+      tags: Array.isArray(tags) ? tags : [],
+      isFraudReported: isFraud,
+      createdAt: new Date(),
+    };
+    await post.save();
+    await post.populate('assignedNgo', 'name email phone orgType badge rating ratingCount trustScore fraudReportsCount');
+
+    // Update NGO User Trust Score & Fraud Counter
+    const ngoUser = await User.findById(post.assignedNgo._id || post.assignedNgo);
+    if (ngoUser) {
+      const totalRatings = (ngoUser.ratingCount || 0) + 1;
+      const newRating = ((ngoUser.rating || 5) * (ngoUser.ratingCount || 0) + Number(stars)) / totalRatings;
+      ngoUser.rating = Math.round(newRating * 10) / 10;
+      ngoUser.ratingCount = totalRatings;
+
+      if (isFraud) {
+        ngoUser.fraudReportsCount = (ngoUser.fraudReportsCount || 0) + 1;
+        ngoUser.trustScore = Math.max(0, (ngoUser.trustScore || 98) - 25);
+        if (ngoUser.trustScore < 60) ngoUser.badge = 'Member';
+      } else {
+        ngoUser.trustScore = Math.min(100, (ngoUser.trustScore || 98) + 1);
+      }
+      await ngoUser.save();
+    }
+
+    await ActivityLog.create({
+      user: req.user._id,
+      userName: req.user.name,
+      userRole: 'donor',
+      action: isFraud ? 'Reported NGO Fraud' : 'Rated NGO Partner',
+      details: `${req.user.name} reviewed NGO partner: ${stars} stars.${isFraud ? ' [FRAUD FLAGGED]' : ''}`,
+    });
+
+    res.json({
+      message: isFraud ? 'NGO fraud report logged for safety review.' : 'Donor feedback on NGO submitted successfully!',
+      post,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Error saving donor NGO feedback.' });
+  }
+});
+
+// PUT /api/posts/:id/recipient-rate-ngo - Recipient reviews involved NGO
+router.put('/:id/recipient-rate-ngo', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'recipient') {
+      return res.status(403).json({ message: 'Only recipient care homes can submit recipient-to-NGO feedback.' });
+    }
+
+    const { stars, comment, tags, isFraudReported } = req.body;
+    const post = await FoodPost.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: 'Post not found.' });
+
+    if (post.claimedBy && post.claimedBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Unauthorized: You did not claim this post.' });
+    }
+
+    if (!post.assignedNgo) {
+      return res.status(400).json({ message: 'No NGO was involved with this post.' });
+    }
+
+    const isFraud = Boolean(isFraudReported);
+    post.ratingRecipientToNgo = {
+      stars: Number(stars) || 5,
+      comment: comment || '',
+      tags: Array.isArray(tags) ? tags : [],
+      isFraudReported: isFraud,
+      createdAt: new Date(),
+    };
+    await post.save();
+    await post.populate('assignedNgo', 'name email phone orgType badge rating ratingCount trustScore fraudReportsCount');
+
+    // Update NGO User Trust Score & Fraud Counter
+    const ngoUser = await User.findById(post.assignedNgo._id || post.assignedNgo);
+    if (ngoUser) {
+      const totalRatings = (ngoUser.ratingCount || 0) + 1;
+      const newRating = ((ngoUser.rating || 5) * (ngoUser.ratingCount || 0) + Number(stars)) / totalRatings;
+      ngoUser.rating = Math.round(newRating * 10) / 10;
+      ngoUser.ratingCount = totalRatings;
+
+      if (isFraud) {
+        ngoUser.fraudReportsCount = (ngoUser.fraudReportsCount || 0) + 1;
+        ngoUser.trustScore = Math.max(0, (ngoUser.trustScore || 98) - 25);
+        if (ngoUser.trustScore < 60) ngoUser.badge = 'Member';
+      } else {
+        ngoUser.trustScore = Math.min(100, (ngoUser.trustScore || 98) + 1);
+      }
+      await ngoUser.save();
+    }
+
+    await ActivityLog.create({
+      user: req.user._id,
+      userName: req.user.name,
+      userRole: 'recipient',
+      action: isFraud ? 'Reported NGO Fraud' : 'Rated NGO Delivery',
+      details: `${req.user.name} reviewed NGO delivery: ${stars} stars.${isFraud ? ' [FRAUD FLAGGED]' : ''}`,
+    });
+
+    res.json({
+      message: isFraud ? 'NGO fraud report logged for safety review.' : 'Recipient feedback on NGO submitted successfully!',
+      post,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Error saving recipient NGO feedback.' });
   }
 });
 

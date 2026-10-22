@@ -76,6 +76,27 @@ export const runSeedScript = async () => {
     phone: '+91 98765 55555',
     address: '50 NGO Tower, Central District, Bengaluru',
     coordinates: { lat: 12.9750, lng: 77.6000 },
+    badge: 'Verified NGO',
+    rating: 4.9,
+    ratingCount: 28,
+    trustScore: 98,
+    fraudReportsCount: 0,
+  });
+
+  const ngoUser2 = await User.create({
+    name: 'Alliance Volunteer Network',
+    email: 'ngo2@zerowaste.org',
+    password: 'password123',
+    role: 'ngo',
+    orgType: 'NGO',
+    phone: '+91 98765 66666',
+    address: '22 Community Crescent, Indiranagar, Bengaluru',
+    coordinates: { lat: 12.9710, lng: 77.6400 },
+    badge: 'Trusted Partner',
+    rating: 4.7,
+    ratingCount: 16,
+    trustScore: 95,
+    fraudReportsCount: 0,
   });
 
   console.log('[Seed] Creating sample food posts...');
@@ -83,7 +104,7 @@ export const runSeedScript = async () => {
   const now = Date.now();
   const ONE_HOUR = 60 * 60 * 1000;
 
-  // Post 1: Low Risk (Fresh Basmati Rice & Dal)
+  // Post 1: Low Risk (Fresh Basmati Rice & Dal) - Direct Delivery
   const post1 = await FoodPost.create({
     donor: donor1._id,
     items: [
@@ -102,9 +123,10 @@ export const runSeedScript = async () => {
     riskReason: 'Freshly prepared 1.5 hrs ago with thermal preservation',
     status: 'Posted',
     pickupAddress: donor1.address,
+    ngoInvolvement: false,
   });
 
-  // Post 2: Medium Risk (Veg Biryani & Salads)
+  // Post 2: Medium Risk (Veg Biryani & Salads) - Direct Delivery
   const post2 = await FoodPost.create({
     donor: donor2._id,
     items: [
@@ -123,9 +145,10 @@ export const runSeedScript = async () => {
     riskReason: 'Prepared 3.5 hrs ago. Recommended for prompt distribution within 2 hours.',
     status: 'Posted',
     pickupAddress: donor2.address,
+    ngoInvolvement: false,
   });
 
-  // Post 3: Claimed Post
+  // Post 3: Claimed Post - Direct Delivery
   const post3 = await FoodPost.create({
     donor: donor1._id,
     items: [
@@ -145,9 +168,10 @@ export const runSeedScript = async () => {
     claimedBy: recipient1._id,
     claimedAt: new Date(now - 30 * 60 * 1000),
     pickupAddress: donor1.address,
+    ngoInvolvement: false,
   });
 
-  // Post 4: Collected & Rated Post
+  // Post 4: Collected & Rated Post - Involving Verified NGO with Double-Sided Anti-Fraud Reviews
   const post4 = await FoodPost.create({
     donor: donor2._id,
     items: [
@@ -168,10 +192,27 @@ export const runSeedScript = async () => {
     claimedAt: new Date(now - 22 * ONE_HOUR),
     collectedAt: new Date(now - 20 * ONE_HOUR),
     pickupAddress: donor2.address,
+    ngoInvolvement: true,
+    assignedNgo: ngoUser._id,
+    ngoInvolvementReason: 'Bulk thermal van transport to Whitefield care home',
     ratingFromRecipient: {
       stars: 5,
       comment: 'Excellent food quality and very polite staff at donor location. Beneficiaries loved it!',
       tags: ['Fresh & Hot', 'Punctual Pickup', 'Hygienic Packaging'],
+      createdAt: new Date(now - 20 * ONE_HOUR),
+    },
+    ratingDonorToNgo: {
+      stars: 5,
+      comment: 'NGO driver arrived on time with thermal containers. Very prompt and professional.',
+      tags: ['On-Time Logistics', 'Hygienic Transit', 'Transparent'],
+      isFraudReported: false,
+      createdAt: new Date(now - 21 * ONE_HOUR),
+    },
+    ratingRecipientToNgo: {
+      stars: 5,
+      comment: 'Full 14 kg delivery verified upon handover. Seals were intact with zero spillage.',
+      tags: ['Full Quantity Received', 'Delivered Sealed', 'Courteous'],
+      isFraudReported: false,
       createdAt: new Date(now - 20 * ONE_HOUR),
     },
   });

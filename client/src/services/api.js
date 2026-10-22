@@ -109,6 +109,37 @@ export const api = {
     return data;
   },
 
+  // NGOs & Anti-Fraud
+  getNgos: async () => {
+    const res = await fetch(`${API_BASE_URL}/posts/ngos`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  },
+
+  donorRateNgo: async (postId, ratingData) => {
+    const res = await fetch(`${API_BASE_URL}/posts/${postId}/donor-rate-ngo`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(ratingData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Error saving donor feedback on NGO');
+    return data;
+  },
+
+  recipientRateNgo: async (postId, ratingData) => {
+    const res = await fetch(`${API_BASE_URL}/posts/${postId}/recipient-rate-ngo`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(ratingData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Error saving recipient feedback on NGO');
+    return data;
+  },
+
   // Notifications
   getNotifications: async () => {
     const res = await fetch(`${API_BASE_URL}/notifications`, {

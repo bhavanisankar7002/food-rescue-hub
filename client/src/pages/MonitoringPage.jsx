@@ -149,6 +149,49 @@ export default function MonitoringPage() {
 
       </div>
 
+      {/* NGO ANTI-FRAUD & TRUST AUDIT NETWORK */}
+      {data.ngoAudit && data.ngoAudit.length > 0 && (
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center space-x-2">
+                <span>🛡️ Verified NGO Partners & Anti-Fraud Trust Scores</span>
+              </h3>
+              <p className="text-xs text-slate-500">Live trust metrics aggregated from donor & recipient quality audits</p>
+            </div>
+            <span className="text-[10px] px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-extrabold">
+              Fraud Detection Active
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {data.ngoAudit.map((ngo) => (
+              <div
+                key={ngo._id}
+                className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-2 text-xs"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-slate-900 dark:text-slate-100">{ngo.name}</span>
+                  <span className="text-amber-500 font-bold">★ {ngo.rating || 4.8}</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Trust Score:</span>
+                  <span className="font-extrabold text-purple-600 dark:text-purple-400">
+                    {ngo.trustScore ?? 98}% Legit
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Misconduct Reports:</span>
+                  <span className={`font-bold ${(ngo.fraudReportsCount || 0) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    {(ngo.fraudReportsCount || 0)} Reports
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* FILTER & SEARCH BAR */}
       <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row gap-3">
@@ -205,6 +248,7 @@ export default function MonitoringPage() {
                 <th className="p-4">Donor Kitchen</th>
                 <th className="p-4">Items & Quantities</th>
                 <th className="p-4">Weight / Served Meals</th>
+                <th className="p-4">Distribution Mode</th>
                 <th className="p-4">Risk Level</th>
                 <th className="p-4">Status</th>
                 <th className="p-4">Claimed By Recipient</th>
@@ -214,7 +258,7 @@ export default function MonitoringPage() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredDonations.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="p-8 text-center text-slate-400">
+                  <td colSpan="8" className="p-8 text-center text-slate-400">
                     No donation records found matching current filters.
                   </td>
                 </tr>
@@ -224,6 +268,27 @@ export default function MonitoringPage() {
                     <td className="p-4 font-bold text-slate-900 dark:text-slate-100">{post.donorName}</td>
                     <td className="p-4 font-semibold text-emerald-700 dark:text-emerald-400">{post.itemsFormatted}</td>
                     <td className="p-4">{post.totalWeightKg} kg ({post.estimatedMeals} meals)</td>
+                    <td className="p-4">
+                      {post.assignedNgo ? (
+                        <div className="space-y-0.5">
+                          <span className="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 font-bold text-[10px]">
+                            🛡️ {post.assignedNgo.name}
+                          </span>
+                          <span className="block text-[10px] text-slate-400">
+                            {post.assignedNgo.trustScore ?? 98}% Trust
+                          </span>
+                          {(post.ratingDonorToNgo?.isFraudReported || post.ratingRecipientToNgo?.isFraudReported) && (
+                            <span className="text-[10px] font-extrabold text-rose-600 block">
+                              ⚠️ Fraud Reported
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-semibold">
+                          🚀 Direct
+                        </span>
+                      )}
+                    </td>
                     <td className="p-4">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         post.riskLevel === 'High' ? 'bg-rose-100 text-rose-700' : post.riskLevel === 'Medium' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'

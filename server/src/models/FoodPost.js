@@ -88,10 +88,40 @@ const foodPostSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    // NGO Involvement
+    ngoInvolvement: {
+      type: Boolean,
+      default: false,
+    },
+    assignedNgo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    ngoInvolvementReason: {
+      type: String,
+      default: '',
+    },
     ratingFromRecipient: {
       stars: { type: Number, default: 0 },
       comment: { type: String, default: '' },
       tags: [{ type: String }],
+      createdAt: { type: Date },
+    },
+    // Feedback from Donor on the NGO
+    ratingDonorToNgo: {
+      stars: { type: Number, default: 0 },
+      comment: { type: String, default: '' },
+      tags: [{ type: String }],
+      isFraudReported: { type: Boolean, default: false },
+      createdAt: { type: Date },
+    },
+    // Feedback from Recipient on the NGO
+    ratingRecipientToNgo: {
+      stars: { type: Number, default: 0 },
+      comment: { type: String, default: '' },
+      tags: [{ type: String }],
+      isFraudReported: { type: Boolean, default: false },
       createdAt: { type: Date },
     },
   },

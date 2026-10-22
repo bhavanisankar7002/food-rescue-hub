@@ -22,6 +22,7 @@ router.get('/', async (req, res) => {
     const postsRaw = await FoodPost.find()
       .populate('donor', 'name email phone orgType rating badge')
       .populate('claimedBy', 'name email phone orgType')
+      .populate('assignedNgo', 'name email phone orgType badge rating ratingCount trustScore fraudReportsCount')
       .sort({ createdAt: -1 });
 
     const donations = postsRaw.map(p => ({
@@ -40,6 +41,17 @@ router.get('/', async (req, res) => {
       collectedAt: p.collectedAt,
       createdAt: p.createdAt,
       rating: p.ratingFromRecipient || null,
+      ngoInvolvement: p.ngoInvolvement,
+      assignedNgo: p.assignedNgo ? {
+        _id: p.assignedNgo._id,
+        name: p.assignedNgo.name,
+        badge: p.assignedNgo.badge,
+        rating: p.assignedNgo.rating,
+        trustScore: p.assignedNgo.trustScore ?? 98,
+        fraudReportsCount: p.assignedNgo.fraudReportsCount || 0,
+      } : null,
+      ratingDonorToNgo: p.ratingDonorToNgo || null,
+      ratingRecipientToNgo: p.ratingRecipientToNgo || null,
     }));
 
     const ratedPosts = postsRaw.filter(p => p.ratingFromRecipient && p.ratingFromRecipient.stars > 0);
@@ -70,11 +82,13 @@ router.get('/', async (req, res) => {
     
     const donorCount = await User.countDocuments({ role: 'donor' });
     const recipientCount = await User.countDocuments({ role: 'recipient' });
+    const ngoCount = await User.countDocuments({ role: 'ngo' });
 
     const totalKgRescued = postsRaw.reduce((acc, p) => acc + (p.totalWeightKg || 0), 0);
     const totalMealsServed = postsRaw.reduce((acc, p) => acc + (p.estimatedMeals || 0), 0);
 
     const recentLogs = await ActivityLog.find().sort({ createdAt: -1 }).limit(15);
+    const ngoAudit = await User.find({ role: 'ngo' }).select('name email phone badge rating ratingCount trustScore fraudReportsCount');
 
     res.json({
       overview: {
@@ -84,6 +98,7 @@ router.get('/', async (req, res) => {
         collectedCount,
         donorCount,
         recipientCount,
+        ngoCount,
         totalKgRescued: Math.round(totalKgRescued * 10) / 10,
         totalMealsServed,
         avgRating,
@@ -96,6 +111,7 @@ router.get('/', async (req, res) => {
         latestFeedback,
       },
       recentLogs,
+      ngoAudit,
     });
   } catch (err) {
     res.status(500).json({ message: err.message || 'Error fetching monitoring analytics.' });

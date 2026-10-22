@@ -40,6 +40,25 @@ export default function PostFoodModal({ isOpen, onClose, onSuccess }) {
   const [dietaryType, setDietaryType] = useState('Veg');
   const [selectedImage, setSelectedImage] = useState(PRESET_IMAGES[0]);
 
+  // NGO Involvement & Anti-Fraud State
+  const [ngoInvolvement, setNgoInvolvement] = useState(false);
+  const [selectedNgoId, setSelectedNgoId] = useState('');
+  const [ngoReason, setNgoReason] = useState('');
+  const [ngoList, setNgoList] = useState([]);
+
+  useEffect(() => {
+    const loadNgos = async () => {
+      try {
+        const ngos = await api.getNgos();
+        setNgoList(ngos);
+        if (ngos.length > 0) setSelectedNgoId(ngos[0]._id);
+      } catch (e) {
+        console.warn('Failed loading NGOs', e);
+      }
+    };
+    loadNgos();
+  }, []);
+
   // Dynamic Risk Computation State
   const [risk, setRisk] = useState({ level: 'Low', reason: 'Freshly prepared' });
 
@@ -120,6 +139,9 @@ export default function PostFoodModal({ isOpen, onClose, onSuccess }) {
         storageTempNotes,
         dietaryType,
         imageUrl: selectedImage,
+        ngoInvolvement,
+        assignedNgo: ngoInvolvement ? selectedNgoId : null,
+        ngoInvolvementReason: ngoInvolvement ? ngoReason : '',
       });
 
       toast.success(res.message || 'Surplus food posted successfully!');
@@ -348,6 +370,103 @@ export default function PostFoodModal({ isOpen, onClose, onSuccess }) {
                 </label>
               </div>
 
+              {/* NGO Involvement & Anti-Fraud Logistics Selection */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                      Distribution Method & NGO Involvement
+                    </label>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                      Anti-Fraud Protected
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Direct recipient pickup avoids NGO middlemen. Alternatively, involve a verified NGO partner for bulk transport.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setNgoInvolvement(false)}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      !ngoInvolvement
+                        ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 ring-1 ring-emerald-500 text-emerald-900 dark:text-emerald-200'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between font-bold text-xs mb-1">
+                      <span>🚀 Direct to Recipient</span>
+                      {!ngoInvolvement && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200">
+                          Recommended
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] opacity-80 leading-snug">
+                      Avoids NGO intermediary. Care homes & shelters collect directly with zero middlemen delay.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setNgoInvolvement(true)}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      ngoInvolvement
+                        ? 'bg-purple-50 dark:bg-purple-950/60 border-purple-500 ring-1 ring-purple-500 text-purple-900 dark:text-purple-200'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between font-bold text-xs mb-1">
+                      <span>🛡️ Involve Verified NGO</span>
+                      {ngoInvolvement && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
+                          Selected
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] opacity-80 leading-snug">
+                      Request audited NGO with thermal transport vans. Subject to two-sided fraud audits.
+                    </p>
+                  </button>
+                </div>
+
+                {ngoInvolvement && (
+                  <div className="pt-2 space-y-3 border-t border-slate-200 dark:border-slate-700/60 mt-2">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Select Verified NGO Partner (Trust-Rated & Audited)
+                      </label>
+                      <select
+                        value={selectedNgoId}
+                        onChange={(e) => setSelectedNgoId(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-purple-500"
+                      >
+                        {ngoList.map((n) => (
+                          <option key={n._id} value={n._id}>
+                            {n.name} (★ {n.rating || 4.8} • {n.trustScore ?? 98}% Trust Score • {n.badge || 'Verified NGO'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Assistance Reason / Dispatch Instructions (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={ngoReason}
+                        onChange={(e) => setNgoReason(e.target.value)}
+                        placeholder="e.g. Bulk donation (>20kg) requiring thermal vehicle transit"
+                        className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Photo Choice */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
@@ -431,6 +550,27 @@ export default function PostFoodModal({ isOpen, onClose, onSuccess }) {
                     </li>
                   ))}
                 </ul>
+              </div>
+
+              {/* Distribution & NGO Summary */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Distribution Routing</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                    {ngoInvolvement
+                      ? `Involving NGO: ${ngoList.find((n) => n._id === selectedNgoId)?.name || 'Verified NGO'}`
+                      : 'Direct Recipient Pickup (No NGO Middleman)'}
+                  </span>
+                </div>
+                <span
+                  className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
+                    ngoInvolvement
+                      ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300'
+                      : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                  }`}
+                >
+                  {ngoInvolvement ? '🛡️ NGO Assisted' : '🚀 Direct Delivery'}
+                </span>
               </div>
 
             </div>

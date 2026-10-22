@@ -46,7 +46,7 @@ const userSchema = new mongoose.Schema(
     },
     badge: {
       type: String,
-      enum: ['Gold', 'Silver', 'Bronze', 'Member'],
+      enum: ['Gold', 'Silver', 'Bronze', 'Member', 'Verified NGO', 'Trusted Partner'],
       default: 'Bronze',
     },
     rating: {
@@ -56,6 +56,14 @@ const userSchema = new mongoose.Schema(
     ratingCount: {
       type: Number,
       default: 12,
+    },
+    trustScore: {
+      type: Number,
+      default: 98,
+    },
+    fraudReportsCount: {
+      type: Number,
+      default: 0,
     },
   },
   { timestamps: true }
